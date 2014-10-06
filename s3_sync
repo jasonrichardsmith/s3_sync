@@ -1,0 +1,121 @@
+#!/bin/bash -e
+
+CONF_PATH="/etc/s3_sync"
+
+
+function usage
+  {
+    echo -e "usage: s3_sync start|restart|stop"
+  }
+
+
+function set_conf
+  {
+    grep -rl 's3_sync file' /etc/cron.d/ | xargs -r rm
+    for i in "$CONF_PATH/*.conf"; do
+      source $i
+      echo "Setting up sync for $bucket_name from $syncdir"
+
+      set_bucket $bucket_name
+      if [[ -n "$syncdown" ]]; then
+      {
+        case $syncdown in
+          hourly )
+            freq="0 * * * *"
+            ;;
+          daily )
+            freq="0 1 * * *"
+            ;;
+          weekly )
+            freq="0 1 * * 6"
+            ;;
+          monthly )
+            freq="0 1 1 * *"
+            ;;
+          * )
+            echo "Invalid frequency: $syndcdown"
+        esac
+        if [[ -n "$freq" ]]; then
+        {
+          echo "Setting cronjob for $bucket_name"
+          cronline="$freq s3cmd sync --no-progress -r --delete-removed s3://$bucket_name $syncdir"
+          if [[ -n "$owner" ]] && [[ -z "$group" ]]; then
+          {
+            cronline="$cronline && chown -r $owner:$group $syncdir"
+          }
+          fi
+          if [[ -n "$permissions" ]]; then
+          {
+            cronline="$cronline && chmod -r $permissions $syncdir"
+          }
+          fi
+          echo "#s3_sync file" > /etc/cron.d/s3_sync_$name
+          echo "$cronline" >> /etc/cron.d/s3_sync_$name
+        }
+        fi
+      }
+      fi
+      set_monitor $syncdir $bucket_name&
+      freq=
+      name=
+      bucket_name=
+      syncdir=
+      syncdown=
+      owner=
+      group=
+      permissions=
+    done
+  }
+
+function set_bucket
+  {
+    value=$(s3cmd ls|grep --quiet "s3://$1$")
+    if [[ -z "$value" ]]; then
+    {
+      echo "Bucket already exists for $1"
+    }
+    else
+    {
+      echo "Creating bucket $1"
+      s3cmd mb s3://$1
+    }
+    fi
+  }
+
+function set_monitor
+  {
+    inotifywait\
+      -m\
+      --format "%w"\
+      -e modify\
+      -e move\
+      -e moved_to\
+      -e moved_from\
+      -e create\
+      -e delete\
+      -r\
+      "$1"\
+      |
+    while read change; do
+      s3cmd sync --no-progress -r --delete-removed $1 s3://$2/
+    done
+  }
+
+function kill_monitors
+  {
+    for i in "$CONF_PATH/*.conf"; do
+      source $i
+      echo "Stopping sync for $bucket_name from $syncdir"
+      kill $(ps -aux | grep "inotifywait .* $syncdir$" | awk '{print $2}')
+    done
+  }
+
+function kill_monitor
+  {
+    kill $(ps -aux | grep "inotifywait .* $1$" | awk '{print $2}')
+    done
+  }
+
+
+kill_monitors
+set_conf
