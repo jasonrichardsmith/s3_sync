@@ -41,10 +41,6 @@ function usage
 
 function set_conf
   {
-    if [[ $EUID -ne 0 ]]; then
-      echo "This script must be run as root"
-      exit
-    fi
     set -u
     grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
     for i in "$CONF_PATH/*.conf"; do
@@ -167,10 +163,6 @@ function kill_monitor
 
 function install_s3_sync
   {
-    if [[ $EUID -ne 0 ]]; then
-      echo "This script must be run as root"
-      exit
-    fi
     s3cmd=$(type -t s3cmd)
     if [[ "$s3cmd" != "file" ]]; then
       echo "s3cmd must be installed"
@@ -187,6 +179,12 @@ function install_s3_sync
     fi
   }
 
+if [[ $EUID -ne 0 ]]; then
+  echo "This script must be run as root"
+  exit
+fi
+
+
 case $1 in
   start )
     set_conf
@@ -198,10 +196,10 @@ case $1 in
   stop )
     kill_monitors
     ;;
-  set )
+  set )  # not meant for user consumption
     set_monitor $2 $3
     ;;
-  unset )
+  unset ) # not meant for user consumption
     kill_monitor $2
     ;;
   install )
