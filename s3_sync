@@ -1,17 +1,47 @@
 #!/bin/bash -e
 
 CONF_PATH="/etc/s3_sync"
+EXAMPLE_CONF='
+# This file must end in ".conf" to be read by the service
 
+# Name for adding and removing features
+name="name"
+
+# Bucket name (required)
+#   If the bucket does not exist it will be created
+bucket_name="bucket"
+
+# Directory to sync (required)
+syncdir="/path/to/file/directory"
+
+# Synchronize down from S3, may overwrite or delete files.
+# Options:
+#   hourly
+#   daily
+#   weekly
+#   monthly
+syncdown="hourly"
+
+# Set ownership for files after sync down
+owner="user"
+
+# Set group ownership for files after sync down
+group="www-data"
+
+# Set permissions
+permissions="770"
+'
 
 function usage
   {
-    echo -e "usage: s3_sync start|restart|stop"
+    echo -e "usage: s3_sync start|restart|stop|install"
   }
 
 
 function set_conf
   {
-    grep -rl 's3_sync file' /etc/cron.d/ | xargs -r rm
+    set -u
+    grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
     for i in "$CONF_PATH/*.conf"; do
       source $i
       echo "Setting up sync for $bucket_name from $syncdir"
@@ -34,6 +64,7 @@ function set_conf
             ;;
           * )
             echo "Invalid frequency: $syndcdown"
+            exit
         esac
         if [[ -n "$freq" ]]; then
         {
@@ -49,22 +80,25 @@ function set_conf
             cronline="$cronline && chmod -r $permissions $syncdir"
           }
           fi
-          echo "#s3_sync file" > /etc/cron.d/s3_sync_$name
+          cronline="s3_sync unset $syncdir && $cronline"
+          cronline="$cronline && s3_sync set $syncdir $bucket_name"
+          echo "#s3_sync_file" > /etc/cron.d/s3_sync_$name
           echo "$cronline" >> /etc/cron.d/s3_sync_$name
         }
         fi
       }
       fi
       set_monitor $syncdir $bucket_name&
-      freq=
-      name=
-      bucket_name=
-      syncdir=
-      syncdown=
-      owner=
-      group=
-      permissions=
+      unset freq
+      unset name
+      unset bucket_name
+      unset syncdir
+      unset syncdown
+      unset owner
+      unset group
+      unset permissions
     done
+    set +u
   }
 
 function set_bucket
@@ -116,6 +150,42 @@ function kill_monitor
     done
   }
 
+function install_s3_sync
+  {
+    if [[ $EUID -ne 0 ]]; then
+      echo "This script must be run as root"
+      exit
+    fi
+    s3cmd=$(type -t s3cmd)
+    if [[ "$s3cmd" != "file" ]]; then
+      echo "s3cmd must be installed"
+      exit
+    fi
+    mkdir $CONF_PATH
+    echo $EXAMPLE_CONF > $CONF_PATH/example_config
+  }
 
-kill_monitors
-set_conf
+case $1 in
+  start )
+    set_conf
+    ;;
+  restart )
+    kill_monitors
+    set_conf
+    ;;
+  stop )
+    kill_monitors
+    ;;
+  set )
+    set_monitor $2 $3
+    ;;
+  unset )
+    kill_monitor $2
+    ;;
+  install )
+    install_s3_sync
+    ;;
+  * )
+    usage
+    exit
+esac
