@@ -41,6 +41,10 @@ function usage
 
 function set_conf
   {
+    if [[ $EUID -ne 0 ]]; then
+      echo "This script must be run as root"
+      exit
+    fi
     set -u
     grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
     for i in "$CONF_PATH/*.conf"; do
@@ -145,6 +149,11 @@ function kill_monitors
       if [[ -n "$pid" ]]; then
         kill $pid
       fi
+  uninstall )
+    kill_monitors
+    rm /usr/sbin/s3_sync
+    ;;
+      grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
     done
   }
 
@@ -174,7 +183,7 @@ function install_s3_sync
       echo -e "$EXAMPLE_CONF" > $CONF_PATH/example_config
     fi
     if [[ ! -f "/usr/bin/s3_sync" ]]; then
-      mv $0 /usr/bin/s3_sync
+      cp $0 /usr/bin/s3_sync
     fi
   }
 
