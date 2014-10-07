@@ -1,18 +1,19 @@
 #!/bin/bash -e
 
 CONF_PATH="/etc/s3_sync"
-EXAMPLE_CONF='
-# This file must end in ".conf" to be read by the service
+EXAMPLE_CONF="
+# This file must end in \".conf\" to be read by the service
+# All fields are required
 
 # Name for adding and removing features
-name="name"
+name=\"name\"
 
-# Bucket name (required)
+# Bucket name
 #   If the bucket does not exist it will be created
-bucket_name="bucket"
+bucket_name=\"bucket\"
 
-# Directory to sync (required)
-syncdir="/path/to/file/directory"
+# Directory to sync
+syncdir=\"/path/to/file/directory\"
 
 # Synchronize down from S3, may overwrite or delete files.
 # Options:
@@ -20,17 +21,17 @@ syncdir="/path/to/file/directory"
 #   daily
 #   weekly
 #   monthly
-syncdown="hourly"
+syncdown=\"hourly\"
 
 # Set ownership for files after sync down
-owner="user"
+owner=\"user\"
 
 # Set group ownership for files after sync down
-group="www-data"
+group=\"www-data\"
 
 # Set permissions
-permissions="770"
-'
+permissions=\"770\"
+"
 
 function usage
   {
@@ -147,7 +148,6 @@ function kill_monitors
 function kill_monitor
   {
     kill $(ps -aux | grep "inotifywait .* $1$" | awk '{print $2}')
-    done
   }
 
 function install_s3_sync
@@ -161,8 +161,12 @@ function install_s3_sync
       echo "s3cmd must be installed"
       exit
     fi
-    mkdir $CONF_PATH
-    echo $EXAMPLE_CONF > $CONF_PATH/example_config
+    if [[ ! -d "$CONF_PATH" ]]; then
+      mkdir $CONF_PATH
+    fi
+    if [[ ! -f "$CONF_PATH/example_config" ]]; then
+      echo -e "$EXAMPLE_CONF" > $CONF_PATH/example_config
+    fi
   }
 
 case $1 in
