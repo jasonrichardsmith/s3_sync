@@ -70,8 +70,8 @@ function set_conf
         if [[ -n "$freq" ]]; then
         {
           echo "Setting cronjob for $bucket_name"
-          cronline="$freq s3cmd sync --no-progress -r --delete-removed s3://$bucket_name $syncdir"
-          if [[ -n "$owner" ]] && [[ -z "$group" ]]; then
+          cronline="s3cmd sync --no-progress -r --delete-removed s3://$bucket_name $syncdir >> /var/log/s3_sync.log"
+          if [[ -n "$owner" ]] && [[ -n "$group" ]]; then
           {
             cronline="$cronline && chown -r $owner:$group $syncdir"
           }
@@ -82,7 +82,7 @@ function set_conf
           }
           fi
           cronline="s3_sync unset $syncdir && $cronline"
-          cronline="$cronline && s3_sync set $syncdir $bucket_name"
+          cronline="$freq $cronline && s3_sync set $syncdir $bucket_name"
           echo "#s3_sync_file" > /etc/cron.d/s3_sync_$name
           echo "$cronline" >> /etc/cron.d/s3_sync_$name
         }
@@ -132,7 +132,7 @@ function set_monitor
       "$1"\
       |
     while read change; do
-      s3cmd sync --no-progress -r --delete-removed $1 s3://$2/
+      s3cmd sync --no-progress -r --delete-removed $1 s3://$2/ >> /var/log/s3_sync.log
     done
   }
 
@@ -141,13 +141,19 @@ function kill_monitors
     for i in "$CONF_PATH/*.conf"; do
       source $i
       echo "Stopping sync for $bucket_name from $syncdir"
-      kill $(ps -aux | grep "inotifywait .* $syncdir$" | awk '{print $2}')
+      pid=$(ps aux | grep "inotifywait .* $syncdir$" | awk '{print $2}')
+      if [[ -n "$pid" ]]; then
+        kill $pid
+      fi
     done
   }
 
 function kill_monitor
   {
-    kill $(ps -aux | grep "inotifywait .* $1$" | awk '{print $2}')
+    pid=$(ps aux | grep "inotifywait .* $1$" | awk '{print $2}')
+    if [[ -n "$pid" ]]; then
+      kill $pid
+    fi
   }
 
 function install_s3_sync
@@ -166,6 +172,9 @@ function install_s3_sync
     fi
     if [[ ! -f "$CONF_PATH/example_config" ]]; then
       echo -e "$EXAMPLE_CONF" > $CONF_PATH/example_config
+    fi
+    if [[ ! -f "/usr/bin/s3_sync" ]]; then
+      mv $0 /usr/bin/s3_sync
     fi
   }
 
