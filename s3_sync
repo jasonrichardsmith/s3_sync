@@ -47,20 +47,23 @@ function usage
 # TODO Break out to smaller functions.
 function set_conf
   {
+    # Check to see if any configs exist.
+    # If none exist error out.
+    configs=$(ls -l $CONF_PATH/*.conf 2> /dev/null|wc -l)
+    if [[ $configs -eq 0 ]]; then
+      echo "No configurations found."
+      exit
+    fi
     # Error on missing values.
     set -u
 
     # Remove all cron jobs.
     grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
-    
-    #TODO check to see if any configs exist.
-    #If none exist error out.
 
     # Loop through all configs.
     for i in "$CONF_PATH/*.conf"; do
       source $i
       echo -e "\n*  Setting up sync for $bucket_name from $syncdir  *\n"
-
       # Create bucket if it does not exists.
       set_bucket $bucket_name
 
@@ -69,16 +72,16 @@ function set_conf
       {
         case $syncdown in
           hourly )
-            freq="0 * * * *"
+            freq="0 * * * * root"
             ;;
           daily )
-            freq="0 1 * * *"
+            freq="0 1 * * * root"
             ;;
           weekly )
-            freq="0 1 * * 6"
+            freq="0 1 * * 6 root"
             ;;
           monthly )
-            freq="0 1 1 * *"
+            freq="0 1 1 * * root"
             ;;
           * )
             echo -e "Invalid frequency: $syndcdown \nFor $name\n"
@@ -87,26 +90,28 @@ function set_conf
         if [[ -n "$freq" ]]; then
         {
           echo -e "\n*  Setting cronjob for $bucket_name  *\n"
-          cronline="s3cmd sync --no-progress -r --delete-removed s3://$bucket_name $syncdir >> /var/log/s3_sync.log"
+          cronline="s3cmd -c $CONF_PATH/.s3cfg sync --no-progress -r --delete-removed s3://$bucket_name $syncdir/ >> /var/log/s3_sync.log"
           # If owner and group is set change permissions for files.
           if [[ -n "$owner" ]] && [[ -n "$group" ]]; then
           {
-            cronline="$cronline && chown -r $owner:$group $syncdir"
+            cronline="$cronline && chown -R $owner:$group $syncdir"
           }
           fi
           # If permissions are set change the permissions.
           if [[ -n "$permissions" ]]; then
           {
-            cronline="$cronline && chmod -r $permissions $syncdir"
+            cronline="$cronline && chmod -R $permissions $syncdir"
           }
           fi
           # Set cron to turn off active inotifywait to prevent syncing to occur twice.
           cronline="s3_sync unset $syncdir && $cronline"
           # Reset standard running daemon
           cronline="$freq $cronline && s3_sync set $syncdir $bucket_name"
-	  # Set tag in file to easily reset cron files with grep
+          # Set tag in file to easily reset cron files with grep
           echo "#s3_sync_file" > /etc/cron.d/s3_sync_$name
-	  # Set cron
+          # Needed so cron will execute
+          echo "PATH=/usr:/usr/bin:/usr/sbin" >> /etc/cron.d/s3_sync_$name
+          # Set cron
           echo "$cronline" >> /etc/cron.d/s3_sync_$name
         }
         fi
@@ -124,6 +129,8 @@ function set_conf
       unset group
       unset permissions
     done
+    #load new cron jobs
+    service cron restart
     # Return set
     set +u
   }
@@ -132,15 +139,15 @@ function set_conf
 # $1 = bucket_name
 function set_bucket
   {
-    value=$(s3cmd ls|grep --quiet "s3://$1$")
+    value=$(s3cmd -c $CONF_PATH/.s3cfg ls|grep --quiet "s3://$1$")
     if [[ -z "$value" ]]; then
     {
-      echo "Bucket already exists for $1"
+      echo -e "\n*  Bucket already exists for $1  *\n"
     }
     else
     {
-      echo "Creating bucket $1"
-      s3cmd mb s3://$1
+      echo -e "\n*  Creating bucket for $1  *\n"
+      s3cmd -c $CONF_PATH/.s3cfg mb s3://$1
     }
     fi
   }
@@ -160,10 +167,11 @@ function set_monitor
       -e create\
       -e delete\
       -r\
+      -s\
       "$1"\
       |
     while read change; do
-      s3cmd sync --no-progress -r --delete-removed $1 s3://$2/ >> /var/log/s3_sync.log
+      s3cmd -c $CONF_PATH/.s3cfg sync --no-progress -r --delete-removed $1/ s3://$2 >> /var/log/s3_sync.log
     done
   }
 
@@ -172,7 +180,7 @@ function kill_monitors
   {
     for i in "$CONF_PATH/*.conf"; do
       source $i
-      echo -e "\n* Stopping sync for $bucket_name from $syncdir *\n"
+      echo -e "\n*  Stopping sync for $bucket_name from $syncdir  *\n"
       #delete all pids set for inotify wait on a specific folder.
       pid=$(ps aux | grep "inotifywait .* $syncdir$" | awk '{print $2}')
       if [[ -n "$pid" ]]; then
@@ -202,12 +210,12 @@ function install_s3_sync
       echo "s3cmd must be installed"
       exit
     fi
-    # Walk user through configuration.
-    s3cmd --configure
     # Make folder for config files.
     if [[ ! -d "$CONF_PATH" ]]; then
       mkdir $CONF_PATH
     fi
+    # Walk user through configuration.
+    s3cmd -c $CONF_PATH/.s3cfg --configure
     # Make sample config file.
     if [[ ! -f "$CONF_PATH/example_config" ]]; then
       echo -e "$EXAMPLE_CONF" > $CONF_PATH/example_config
