@@ -1,9 +1,12 @@
 #!/bin/bash -e
 
+# Change to path where s3_sync files should reside
 CONF_PATH="/etc/s3_sync"
 EXAMPLE_CONF="
 # This file must end in \".conf\" to be read by the service
-# All fields are required
+# All fields are required!
+# Unused field should be set as an empty string.
+# value=
 
 # Name for adding and removing features
 name=\"name\"
@@ -33,21 +36,35 @@ group=\"www-data\"
 permissions=\"770\"
 "
 
+# Function to define usage if proper values are not provided.
 function usage
   {
     echo -e "usage: s3_sync start|restart|stop|install"
   }
 
 
+# Function to set configurations.
+# TODO Break out to smaller functions.
 function set_conf
   {
+    # Error on missing values.
     set -u
+
+    # Remove all cron jobs.
     grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
+    
+    #TODO check to see if any configs exist.
+    #If none exist error out.
+
+    # Loop through all configs.
     for i in "$CONF_PATH/*.conf"; do
       source $i
-      echo "Setting up sync for $bucket_name from $syncdir"
+      echo -e "\n*  Setting up sync for $bucket_name from $syncdir  *\n"
 
+      # Create bucket if it does not exists.
       set_bucket $bucket_name
+
+      # If syncdown is set a cron job will be built.
       if [[ -n "$syncdown" ]]; then
       {
         case $syncdown in
@@ -64,32 +81,40 @@ function set_conf
             freq="0 1 1 * *"
             ;;
           * )
-            echo "Invalid frequency: $syndcdown"
+            echo -e "Invalid frequency: $syndcdown \nFor $name\n"
             exit
         esac
         if [[ -n "$freq" ]]; then
         {
-          echo "Setting cronjob for $bucket_name"
+          echo -e "\n*  Setting cronjob for $bucket_name  *\n"
           cronline="s3cmd sync --no-progress -r --delete-removed s3://$bucket_name $syncdir >> /var/log/s3_sync.log"
+          # If owner and group is set change permissions for files.
           if [[ -n "$owner" ]] && [[ -n "$group" ]]; then
           {
             cronline="$cronline && chown -r $owner:$group $syncdir"
           }
           fi
+          # If permissions are set change the permissions.
           if [[ -n "$permissions" ]]; then
           {
             cronline="$cronline && chmod -r $permissions $syncdir"
           }
           fi
+          # Set cron to turn off active inotifywait to prevent syncing to occur twice.
           cronline="s3_sync unset $syncdir && $cronline"
+          # Reset standard running daemon
           cronline="$freq $cronline && s3_sync set $syncdir $bucket_name"
+	  # Set tag in file to easily reset cron files with grep
           echo "#s3_sync_file" > /etc/cron.d/s3_sync_$name
+	  # Set cron
           echo "$cronline" >> /etc/cron.d/s3_sync_$name
         }
         fi
       }
       fi
+      # Set monitors
       set_monitor $syncdir $bucket_name&
+      # Unset values so script will error out on misconfigured conf files
       unset freq
       unset name
       unset bucket_name
@@ -99,9 +124,12 @@ function set_conf
       unset group
       unset permissions
     done
+    # Return set
     set +u
   }
 
+# Function to set bucket in s3 if it does not exist.
+# $1 = bucket_name
 function set_bucket
   {
     value=$(s3cmd ls|grep --quiet "s3://$1$")
@@ -117,6 +145,9 @@ function set_bucket
     fi
   }
 
+# Function to set inotify functions daemons
+# $1 = folder to watch
+# $2 = bucket_name
 function set_monitor
   {
     inotifywait\
@@ -136,23 +167,24 @@ function set_monitor
     done
   }
 
+# Function to unset all jobs and delete all cron jobs.
 function kill_monitors
   {
     for i in "$CONF_PATH/*.conf"; do
       source $i
-      echo "Stopping sync for $bucket_name from $syncdir"
+      echo -e "\n* Stopping sync for $bucket_name from $syncdir *\n"
+      #delete all pids set for inotify wait on a specific folder.
       pid=$(ps aux | grep "inotifywait .* $syncdir$" | awk '{print $2}')
       if [[ -n "$pid" ]]; then
         kill $pid
       fi
-  uninstall )
-    kill_monitors
-    rm /usr/sbin/s3_sync
-    ;;
-      grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
     done
+    # Delete all cron jobs.
+    grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
   }
 
+# Function to kill monitor while cron runs.
+# $1 = folder to watch
 function kill_monitor
   {
     pid=$(ps aux | grep "inotifywait .* $1$" | awk '{print $2}')
@@ -161,30 +193,40 @@ function kill_monitor
     fi
   }
 
+# Function to install.
 function install_s3_sync
   {
+    # Check if s3cmd is installed.
     s3cmd=$(type -t s3cmd)
     if [[ "$s3cmd" != "file" ]]; then
       echo "s3cmd must be installed"
       exit
     fi
+    # Walk user through configuration.
+    s3cmd --configure
+    # Make folder for config files.
     if [[ ! -d "$CONF_PATH" ]]; then
       mkdir $CONF_PATH
     fi
+    # Make sample config file.
     if [[ ! -f "$CONF_PATH/example_config" ]]; then
       echo -e "$EXAMPLE_CONF" > $CONF_PATH/example_config
     fi
-    if [[ ! -f "/usr/bin/s3_sync" ]]; then
-      cp $0 /usr/bin/s3_sync
+    # Copy this file to usr sbin.
+    if [[ ! -f "/usr/sbin/s3_sync" ]]; then
+      cp $0 /usr/sbin/s3_sync
     fi
   }
 
+# Start script.
+
+# This can only be run as root
 if [[ $EUID -ne 0 ]]; then
   echo "This script must be run as root"
   exit
 fi
 
-
+# Parse  arguments
 case $1 in
   start )
     set_conf
