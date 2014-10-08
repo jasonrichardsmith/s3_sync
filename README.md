@@ -1,6 +1,6 @@
-S3 Sync (s3_sync)
+# S3 Sync (s3_sync) #
 
-Description
+## Description ##
 
 S3 Sync is a bash script that will setup automatic syncing between your local directory and Amazon S3, utilizing the inotify linux kernel utility and s3cmd.  It can also sync from your S3 bucket to a local directory via cron.
 
@@ -8,11 +8,11 @@ After failing to effectively get File Conveyor working due to repeated python de
 
 Unlike File Conveyor this script does not perform any image compression, css compression, or any other file manipulation, it just moves files back and forth from S3.
 
-Requirements
-S3cmd -  which is available in most package repositories
+## Requirements ##
+s3cmd -  which is available in most package repositories
 kernel version 2.6 or above
 
-Install
+## Install ##
 Download the package
 within the s3_sync directory run chmod +x s3_sync && ./s3_sync install
 
@@ -27,7 +27,7 @@ Install will also walk you through s3cmd configuration.  S3 sync utilizes its ow
 
 s3_sync is copied to /usr/sbin
 
-Operation
+## Operation ##
 
 When install is complete and you have setup at least one configuration, you can run s3_sync start
 
@@ -37,8 +37,6 @@ If you have rogue processes you can find them with ps -ax|grep 'inotifywait'.
 
 To restart you can run s3_sync restart
 
-Disclaimer
+## Disclaimer ##
 This script is still in beta and has not been tested on all distributions.
 If you choose to utilize the syncdown functionality (Amazon S3 -> your directory) you do run the risk of having files automatically deleted from your filesystem.
-
-
