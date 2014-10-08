@@ -51,7 +51,13 @@ To stop all your s3_syncs you can run
 ```
 
 Warning: if you change a config before issuing s3_sync stop you can be left with rogue sync processes.  This script is not tracking pids, and if you have another inotifywait function running on same exact folder s3_sync stop will stop them as well.
-If you have rogue processes you can find them with ps -ax|grep 'inotifywait'.
+If you have rogue processes you can find them with 
+```
+#!bash
+
+ps -ax|grep 'inotifywait'.
+```
+
 
 To restart you can run
 ```
