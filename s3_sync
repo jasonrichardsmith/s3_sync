@@ -61,7 +61,7 @@ function set_conf
     grep -rl 's3_sync_file' /etc/cron.d/ | xargs -r rm
 
     # Loop through all configs.
-    for i in "$CONF_PATH/*.conf"; do
+    for i in $CONF_PATH/*.conf; do
       source $i
       echo -e "\n*  Setting up sync for $bucket_name from $syncdir  *\n"
       # Create bucket if it does not exist.
