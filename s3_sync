@@ -64,7 +64,7 @@ function set_conf
     for i in "$CONF_PATH/*.conf"; do
       source $i
       echo -e "\n*  Setting up sync for $bucket_name from $syncdir  *\n"
-      # Create bucket if it does not exists.
+      # Create bucket if it does not exist.
       set_bucket $bucket_name
 
       # If syncdown is set a cron job will be built.
@@ -118,7 +118,7 @@ function set_conf
       }
       fi
       # Set monitors
-      set_monitor $syncdir $bucket_name&
+      s3_sync set $syncdir $bucket_name&
       # Unset values so script will error out on misconfigured conf files
       unset freq
       unset name
@@ -139,8 +139,7 @@ function set_conf
 # $1 = bucket_name
 function set_bucket
   {
-    value=$(s3cmd -c $CONF_PATH/.s3cfg ls|grep --quiet "s3://$1$")
-    if [[ -z "$value" ]]; then
+    if s3cmd -c $CONF_PATH/.s3cfg ls|grep --quiet "s3://$1$"; then
     {
       echo -e "\n*  Bucket already exists for $1  *\n"
     }
