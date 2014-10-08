@@ -112,7 +112,7 @@ function set_conf
           # Needed so cron will execute
           echo "PATH=$PATH" >> /etc/cron.d/s3_sync_$name
           # Set cron
-          echo "$cronline" >> /etc/cron.d/s3_sync_$name
+          echo -e "$cronline\n" >> /etc/cron.d/s3_sync_$name
         }
         fi
       }
