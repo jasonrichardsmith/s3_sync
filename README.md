@@ -35,7 +35,13 @@ s3_sync is copied to /usr/sbin
 
 ## Operation ##
 
-When install is complete and you have setup at least one configuration, you can run s3_sync start
+When install is complete and you have setup at least one configuration, you can run 
+```
+#!bash
+
+s3_sync start
+```
+
 
 To stop all your s3_syncs you can run
 ```
