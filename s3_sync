@@ -110,7 +110,7 @@ function set_conf
           # Set tag in file to easily reset cron files with grep
           echo "#s3_sync_file" > /etc/cron.d/s3_sync_$name
           # Needed so cron will execute
-          echo "PATH=/usr:/usr/bin:/usr/sbin" >> /etc/cron.d/s3_sync_$name
+          echo "PATH=$PATH" >> /etc/cron.d/s3_sync_$name
           # Set cron
           echo "$cronline" >> /etc/cron.d/s3_sync_$name
         }
