@@ -8,6 +8,8 @@ After failing to effectively get File Conveyor working due to repeated python de
 
 Unlike File Conveyor this script does not perform any image compression, css compression, or any other file manipulation, it just moves files back and forth from S3.
 
+Big shout out to osse on irce.freenode.net #bash for the assist on my config files loop.
+
 ## Requirements ##
 s3cmd -  which is available in most package repositories
 kernel version 2.6 or above
