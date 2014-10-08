@@ -14,7 +14,13 @@ kernel version 2.6 or above
 
 ## Install ##
 Download the package
-within the s3_sync directory run chmod +x s3_sync && ./s3_sync install
+within the s3_sync directory run 
+```
+#!bash
+
+chmod +x s3_sync && ./s3_sync install
+```
+
 
 This performs the following actions
 It will create your configuration directory at /etc/s3_sync/
@@ -31,11 +37,23 @@ s3_sync is copied to /usr/sbin
 
 When install is complete and you have setup at least one configuration, you can run s3_sync start
 
-To stop all your s3_syncs you can run s3_sync stop
+To stop all your s3_syncs you can run
+```
+#!bash
+
+ s3_sync stop
+```
+
 Warning: if you change a config before issuing s3_sync stop you can be left with rogue sync processes.  This script is not tracking pids, and if you have another inotifywait function running on same exact folder s3_sync stop will stop them as well.
 If you have rogue processes you can find them with ps -ax|grep 'inotifywait'.
 
-To restart you can run s3_sync restart
+To restart you can run
+```
+#!bash
+
+ s3_sync restart
+```
+
 
 ## Disclaimer ##
 This script is still in beta and has not been tested on all distributions.
