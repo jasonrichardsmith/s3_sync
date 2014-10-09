@@ -177,7 +177,7 @@ function set_monitor
 # Function to unset all jobs and delete all cron jobs.
 function kill_monitors
   {
-    for i in "$CONF_PATH/*.conf"; do
+    for i in $CONF_PATH/*.conf; do
       source $i
       echo -e "\n*  Stopping sync for $bucket_name from $syncdir  *\n"
       #delete all pids set for inotify wait on a specific folder.
